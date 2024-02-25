@@ -1,0 +1,23 @@
+{
+	"name": "railways",
+	"obj": {
+		"name": "railways",
+		"type": "FeatureCollection",
+		"description": "Railways",
+		"features": []
+	},
+
+	"filters": {
+		"way": {
+			"railway": [
+				{
+					"group": "railways",
+					"values": [ "rail", "light_rail", "monorail", "narrow_gauge", "preserved", "tram" ],
+					"skip": [ "tunnel" ],
+					"properties": [ ],
+					"minzoom": 13
+				}
+			]
+		}
+	}
+}

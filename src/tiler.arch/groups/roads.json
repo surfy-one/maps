@@ -1,0 +1,55 @@
+{
+	"name": "roads",
+	"obj": {
+		"name": "roads",
+		"type": "FeatureCollection",
+		"description": "Hightways and roads",
+		"features": []
+	},
+
+	"filters": {
+		"way": {
+			"highway": [
+				{
+					"group": "roads",
+					"layer": "highways",
+					"values": [ "motorway" ],
+					"properties": [ "name", "tunnel" ],
+					"minzoom": 8
+				},
+				{
+					"group": "roads",
+					"layer": "highways",
+					"values": [ "trunk" ],
+					"properties": [ "name", "tunnel" ],
+					"minzoom": 8
+				},
+				{
+					"group": "roads",
+					"layer": "highways",
+					"values": [ "primary" ],
+					"properties": [ "name", "tunnel" ],
+					"minzoom": 8
+				},
+
+				{
+					"group": "roads",
+					"layer": "streets",
+					"values": [ "unclassified", "residential", "tertiary" ],
+					"properties": [ "name", "tunnel" ],
+					"minzoom": 14
+				},
+
+				{
+					"group": "roads",
+					"layer": "streets",
+					"values": [ "service" ],
+					"properties": [ "name", "tunnel" ],
+					"minzoom": 14
+				}
+
+				
+			]
+		}
+	}
+}

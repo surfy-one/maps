@@ -1,0 +1,22 @@
+{
+	"name": "labels",
+	"obj": {
+		"name": "labels",
+		"type": "FeatureCollection",
+		"description": "",
+		"features": []
+	},
+
+	"filters": {
+		"node": {
+			"place": [
+				{
+					"group": "labels",
+					"values": [ "quarter", "suburb", "borough", "city", "country", "sea", "ocean" ],
+					"properties": [ "name", "place" ],
+					"minzoom": 10
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,404 @@
+{
+	"groups": {
+
+		"nature": {
+
+			"water": {
+				"minzoom": 8,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"8": {
+						"tolerance": 0.0005,
+						"drop": 0.00001
+					},
+					"10": {
+						"tolerance": 0.0005,
+						"drop": 0.000001
+					},
+					"12": {
+						"tolerance": 0.000005,
+						"drop": 0.0000001
+					},
+					"14": {
+						"tolerance": 0.000005,
+						"drop": 0.00000001
+					}
+				}
+			},
+
+			"service": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.000005,
+						"drop": 0.00000001
+					}
+				}
+			},
+
+			"green": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.00000001
+					}
+				}
+			}
+
+		},
+
+		"service": {
+
+			"bridges": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.00001
+					}
+				}
+			},
+
+			"railways": {
+				"minzoom": 14,
+				"compress": {
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.0000001
+					}
+				}
+			}
+		},
+
+		"roads": {
+
+			"tunnels": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.0000001
+					}
+				}
+			},
+
+			"motorways": {
+				"minzoom": 8,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"8": {
+						"tolerance": 0.001,
+						"drop": 0.001
+					},
+					"10": {
+						"tolerance": 0.001,
+						"drop": 0.0001
+					},
+					"12": {
+						"tolerance": 0.0001,
+						"drop": 0.00001
+					},
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.0000001
+					}
+				}
+			},
+
+			"highways": {
+				"minzoom": 12,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"12": {
+						"tolerance": 0.0001,
+						"drop": 0.00001
+					},
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.0000001
+					}
+				}
+			},
+
+			"streets": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.0000001
+					}
+				}
+			}
+		},
+
+		"buildings": {
+			
+			"facilities": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.000000005
+					}
+				}
+			},
+
+			"houses": {
+				"minzoom": 14,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				],
+				"compress": {
+					"14": {
+						"tolerance": 0.00001,
+						"drop": 0.000000005
+					}
+				}
+			},
+
+			"aero": {
+				"minzoom": 14
+			}
+		},
+
+		"labels": {
+
+			"stations": {
+				"minzoom": 12,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					},
+					{
+						"field": "network",
+						"type": [
+							{
+								"name": "Default",
+								"icon": "station"
+							},
+							{
+								"name": "London Underground",
+								"icon": "uk-tfl-lu"
+							},
+							{
+								"name": "London Overground",
+								"icon": "uk-tfl-lo"
+							},
+							{
+								"name": "Elizabeth Line",
+								"icon": "uk-tfl-el"
+							},
+							{
+								"name": "Docklands Light Railway",
+								"icon": "uk-tfl-dlr"
+							},
+							{
+								"name": "National Rail",
+								"icon": "uk-nr"
+							}
+						]
+					}
+				]
+			},
+
+			"districts": {
+				"minzoom": 12,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				]
+			},
+
+			"cities": {
+				"minzoom": 8,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					},
+					{
+						"field": "capital",
+						"type": "bool"
+					}
+				]
+			},
+
+			"countries": {
+				"minzoom": 2,
+				"data": {
+					"name": "*"
+				}
+			},
+
+			"marine": {
+				"minzoom": 2,
+				"data": [
+					{
+						"field": "name",
+						"type": "*"
+					}
+				]
+			}
+		}
+	},
+
+	"filters": {
+		"node": {
+			"railway": [
+				{
+					"values": [ "station" ],
+					"containers": [ "labels:stations" ]
+				}
+			],
+			"place": [
+				{
+					"values": [ "quarter", "suburb", "borough" ],
+					"containers": [ "labels:districts" ]
+				},
+				{
+					"values": [ "city", "town" ],
+					"containers": [ "labels:cities" ]
+				},
+				{
+					"values": [ "country" ],
+					"containers": [ "labels:countries" ]
+				},
+				{
+					"values": [ "sea", "ocean" ],
+					"containers": [ "labels:marine" ]
+				}
+			]
+		},
+		"way": {
+			"highway": [
+				{
+					"values": [ "motorway" ],
+					"containers": [ "roads:motorways" ]
+				},
+				{
+					"values": [ "trunk", "primary" ],
+					"containers": [ "roads:highways" ]
+				},
+				{
+					"values": [ "unclassified", "residential", "tertiary", "service" ],
+					"containers": [ "roads:streets" ]
+				}
+			],
+			"railway": [
+				{
+					"values": [ "rail", "light_rail", "monorail", "narrow_gauge", "preserved", "tram" ],
+					"skip": {
+						"tunnel": "*"
+					},
+					"containers": [ "service:railways" ]
+				}
+			]
+		},
+		"area": {
+			"water": [
+				{
+					"values": [ "canal", "basin", "wastewater", "reservoir" ],
+					"containers": ["nature:service"]
+				}
+			],
+			"natural": [
+				{
+					"values": [ "water" ],
+					"skip": {
+						"water": "canal"
+					},
+					"containers": [ "nature:water" ]
+				},
+				{
+					"values": [ "tree_row", "shrubbery" ],
+					"containers": [ "nature:green" ]
+				}
+			],
+			"landuse": [
+				{
+					"values": [ "grass" ],
+					"containers": [ "nature:green" ]
+				}
+			],
+			"leisure": [
+				{
+					"values": [ "park", "garden", "pitch", "playground" ],
+					"containers": [ "nature:green" ]
+				},
+				{
+					"values": [ "stadium" ],
+					"containers": [ "buildings:facilities" ]
+				}
+			],
+			"building": [
+				{
+					"values": "*",
+					"containers": [ "buildings:houses" ]
+				}
+			],
+			"man_made": [
+				{
+					"values": [ "bridge" ],
+					"containers": [ "service:bridges" ]
+				}
+			]
+		}
+	}
+}

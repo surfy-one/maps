@@ -1,0 +1,8 @@
+{
+	"pbf_input": "/storage/maps/tiles/isle-of-dogs/src.pbf",
+	"tmp_file": "/storage/maps/tmp/tmp.nodecache",
+	"geojson": "/storage/maps/tiles/isle-of-dogs/geojson",
+	"data": "/storage/maps/tiles/isle-of-dogs/data",
+	"minzoom": 2,
+	"maxzoom": 14
+}

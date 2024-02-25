@@ -1,0 +1,9 @@
+{
+	"db_file": "/storage/maps/tiles/canary/canary.db",
+	"pbf_input": "/storage/maps/tiles/canary/src.pbf",
+	"tmp_file": "/storage/maps/tmp/tmp.nodecache",
+	"geojson": "/storage/maps/tiles/canary/geojson",
+	"data": "/storage/maps/tiles/canary/data",
+	"minzoom": 2,
+	"maxzoom": 14
+}
