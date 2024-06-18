@@ -1,16 +1,21 @@
 /*
 
-Tiles
+Surfy° Maps. Tiles
 
 */
 
-import './utils/polygon-clipping.js';
-const geometryTypes = ['Point','LineString','MultiLineString','Polygon','MultiPolygon'];
+const geometryTypes = [
+	"Dummy",
+	"Point",
+	"Line",
+	"MultiLine",
+	"Polygon",
+	"MultiPolygon"
+];
 
 class Tiles {
 
 	constructor(map){
-
 		this.map = map;
 		this.storage = {
 			tiles: {},
@@ -25,98 +30,13 @@ class Tiles {
 
 		this.container = document.createElementNS(this.map.svgNS, 'g');
 		this.container.classList.add('tiles');
-		this.map.svg.appendChild(this.container);
+		this.map.container.appendChild(this.container);
+
 	}
 
-	/*
-
-	Get Bounds
-
-	*/
-
-	getBounds = tile => {
-		const [zoom, xtile, ytile] = tile;
-		const Z2 = Math.pow(2, zoom);
-
-		/*
-
-		X
-
-		*/
-
-		const x = xtile / Z2;
-		const lng = (x - 0.5) * 360;
-
-		const x2 = (xtile + 1) / Z2;
-		const lng2 = (x2 - 0.5) * 360;
-
-
-		/*
-
-		Y
-
-		*/
-
-		const y = ytile / Z2;
-		const sinlat = Math.sin((2 * Math.atan(Math.exp(2 * Math.PI * (0.5 - y)))) - Math.PI / 2);
-		const lat = Math.asin(sinlat) * (180 / Math.PI);
-
-		const y2 = (ytile+1) / Z2;
-		const sinlat2 = Math.sin((2 * Math.atan(Math.exp(2 * Math.PI * (0.5 - y2)))) - Math.PI / 2);
-		const lat2 = Math.asin(sinlat2) * (180 / Math.PI);
-
-		return [lng, lat, lng2, lat2];
-		
-	}
-
-	/*
-
-	Tile
-
-	*/
-
-	tile = (zoom, coords, max) => {
-		const [x, y] = this.map.utils._xy(coords);
-		const Z2 = Math.pow(2, zoom);
-
-		let xtile;
-
-		if(x <= 0){
-			xtile = 0
-		} else if(x >= 1){
-			xtile = parseInt(Z2 - 1, 10);
-		} else if(max){
-			xtile = parseInt(Math.ceil(x * Z2), 10);
-			
-		} else {
-			xtile = parseInt(Math.floor(x * Z2), 10);
-			
-		}
-
-		let ytile;
-
-		if(y <= 0){
-			ytile = 0;
-		} else if(y >= 1){
-			ytile = parseInt(Z2 - 1, 10);
-		} else if(max){
-			ytile = parseInt(Math.ceil(y * Z2), 10);
-		} else {
-			ytile = parseInt(Math.floor(y * Z2), 10);
-		}
-
-		return [xtile, ytile]
-	}
-
-	/*
-
-	Get Tiles
-
-	*/
-
-	get = () => {
+	update = () => {
 		const zoomID = this.map.zoomID;
-
+		
 		/*
 
 		Hide Zoom Group
@@ -127,14 +47,14 @@ class Tiles {
 
 			// Hide Zoom Collection
 			if(this.storage.tiles[this.currentZoomID]){
-				this.storage.tiles[this.currentZoomID].container.classList.add('hide');
 				this.storage.tiles[this.currentZoomID].hide = true;
+				this.storage.tiles[this.currentZoomID].container.remove();
 			}
 
 			// Show Zoom Collection
 			if(this.storage.tiles[zoomID]){
-				this.storage.tiles[zoomID].container.classList.remove('hide');
 				this.storage.tiles[zoomID].hide = false;
+				this.container.appendChild(this.storage.tiles[zoomID].container);
 			}
 
 			// Reassign Zoom ID
@@ -149,16 +69,23 @@ class Tiles {
 		*/
 
 		if(!this.storage.tiles[zoomID]){
+
+			/*
+
+			.SurfyMaps > svg.container > .tiles > .zoom[zoom={zoomID}]
+
+			*/
+
 			const container = document.createElementNS(this.map.svgNS, 'g');
 			container.classList.add('zoom');
 			container.setAttribute('zoom', zoomID);
 			this.container.appendChild(container);
 
-			/*let groups = {};
-			let groupsSrc = Object.keys(this.map.style.groups);
-			for(let group of groupsSrc){
-				groups[group] = {};
-			}*/
+			/*
+
+			Create Zoom instance in Tiles
+
+			*/
 			
 			this.storage.tiles[zoomID] = {
 				container: container,
@@ -173,7 +100,7 @@ class Tiles {
 
 			*/
 
-			if(this.map.style.groups.bounds){
+			if(this.map.style?.groups.bounds){
 				const boundaries = document.createElementNS(this.map.svgNS, 'g');
 				boundaries.classList.add('bounds');
 				container.appendChild(boundaries);
@@ -191,17 +118,15 @@ class Tiles {
 
 		*/
 
-		const bbox = this.map.utils.canvasBBox();
-
-		const xTiles = this.tile(zoomID, [bbox[0], bbox[1]]);
-		const yTiles = this.tile(zoomID, [bbox[2], bbox[3]], true);
-
+		const tiles = this.map.utils.tiles(zoomID);
+		
 		let visibleTiles = {};
+		let queue = [];
 
-		for(let x = xTiles[0]; x < yTiles[0]; x++){
-			for(let y = xTiles[1]; y < yTiles[1]; y++){
+		for(let x = tiles[0]; x <= tiles[2]; x++){
+			for(let y = tiles[1]; y <= tiles[3]; y++){
 				const url = `${zoomID}/${x}/${y}`;
-
+				
 				visibleTiles[url] = true;
 
 				if(typeof this.storage.tiles[zoomID].items[url] === 'undefined'){
@@ -218,7 +143,8 @@ class Tiles {
 						joinTiles: {}, // To store Join Tiles
 					};
 
-					this.load(zoomID, url);
+					// this.load(zoomID, url)
+					queue.push(url)
 
 					/*
 
@@ -226,11 +152,13 @@ class Tiles {
 
 					*/
 
-					const bounds = this.getBounds([zoomID,x,y]);
-					const border = this.map.draw.bounds(bounds, url, this.storage.tiles[zoomID].groups.bounds.container);
+					if(this.map.style?.groups.bounds){
+						const bounds = this.map.utils.getTileBounds([zoomID,x,y]);
+						const border = this.map.draw.bounds(bounds, url, this.storage.tiles[zoomID].groups.bounds.container);
+					}
 
 				} else {
-
+					
 					/*
 
 					Show Tile
@@ -291,33 +219,7 @@ class Tiles {
 		// Reassign visible tiles
 		this.storage.tiles[zoomID].visible = visibleTiles;
 
-
-	}
-
-	/*
-
-	Load Tile
-
-	*/
-
-	load = async (zoomID, url) => {
-		let result;
-		try {
-			let rUrl = `${this.map.style.tiles}/${url}`;
-			result = await(await fetch(rUrl)).text();
-		} catch(e){
-			// Continue Regardless Error
-			result = '0';
-		}
-		
-		this.storage.tiles[zoomID].items[url].src = result;
-
-		if(result !== '0'){
-			this.parse(zoomID, url);
-		} else {
-			this.storage.tiles[zoomID].items[url] = false;
-		}
-		
+		this.load(zoomID, queue);
 	}
 
 	/*
@@ -326,21 +228,86 @@ class Tiles {
 
 	*/
 
+	parsePoint = input => {
+		return input.split(" ").map(e => parseInt(e, 10) / 1e6);
+	}
+
+	parseLine = input => {
+		let coords = [];
+		const matches = input.match(/-?(\d+) -?(\d+)/g);
+		if (matches) {
+			matches.forEach(match => {
+				coords.push(this.parsePoint(match));
+			});
+		}
+
+		return coords;
+	}
+
+	parsePolygon = input => {
+		let coords = [];
+		const matches = input.match(/\([^()]+\)/g);
+		if (matches) {
+			
+			matches.forEach(match => {
+				let ring = this.parseLine(match);
+				if(ring.length){
+					coords.push(ring);
+				}
+			});
+		}
+
+		return coords;
+	}
+
+	coords = (id, geomType, input) => {
+		
+		if (geomType === "Point") {
+			
+			return this.parsePoint(input);
+
+		} else if (geomType === "Line") {
+			
+			return this.parseLine(input);
+
+		} else if (geomType === "Polygon") {
+			
+			return this.parsePolygon(input);
+
+		} else if (geomType === "MultiPolygon"){
+			
+			let coords = [];
+			const matches = input.match(/\(\([^()]+\)(?:,\([^()]+\))*\)/g);
+			matches.forEach(match => {
+				coords.push(this.parsePolygon(match));
+			});
+			return coords;
+
+		} else {
+			console.log("Input", geomType, input);
+		}
+
+		return [];
+	}
+
 	parse = (zoomID, url) => {
 		let zoomObj = this.storage.tiles[zoomID];
 		let tile = zoomObj.items[url];
+		
 		let features = tile.src.split('\n');
-			features.pop(); // Remove Last Empty Line
+			// features.pop(); // Remove Last Empty Line
 
 		let processed = {};
 
 		for(let item of features){
+			if(!item){
+				continue;
+			}
+
 			let chunks = item.split('\t');
-			let coords = JSON.parse(chunks.pop());
 
+			const fID = parseInt(chunks.shift(), 10);
 
-			const fID = chunks.shift();
-			
 			if(this.storage.features[zoomID][fID]){
 				// Skip feature if it exists
 				continue;
@@ -349,11 +316,18 @@ class Tiles {
 			const geomID = parseInt(chunks.shift(), 10);
 			const geomType = geometryTypes[geomID];
 			
-			const groupID = parseInt(chunks.shift(), 10);
-			const group = this.map.style.config[groupID];
-
 			const layerID = parseInt(chunks.shift(), 10);
-			const layer = group.layers[layerID];
+
+			const coordsSrc = chunks.pop();
+			const coords = this.coords(fID, geomType, coordsSrc);
+			
+			const layerConfig = this.map.style.config.layers[layerID];
+
+			const group = layerConfig.group;
+			const layer = layerConfig.layer;
+			
+
+			// continue;
 
 			/*
 
@@ -363,14 +337,15 @@ class Tiles {
 
 			let data = {};
 			if(chunks.length){
-				const layerConfig = this.map.style.config[groupID].layers[layerID];
+				
 				for(let [idx, r] of Object.entries(layerConfig.data)){
 					let v = chunks[idx];
 					if(typeof r.type === 'object'){
 						v = r.type[v];
 					}
-					data[r.field] = v;
+					data[r.key] = v;
 				}
+
 			}
 			
 
@@ -383,10 +358,12 @@ class Tiles {
 			let feature = {
 				id: fID,
 				type: geomType,
-				group: group.name,
-				layer: layer.name,
+				group: group,
+				layer: layer,
 				coords: coords,
-				data: data
+				data: data,
+				tileURL: url,
+				coordsSrc: coordsSrc
 			};
 
 			
@@ -639,11 +616,87 @@ class Tiles {
 			*/
 
 			processed[feature.id] = feature;
-
 		}
 
-		this.map.draw.render(processed);
+		this.map.draw.render(url, processed);
 	}
-}
+
+	/*
+
+	Load Tiles
+
+	*/
+
+	load = async (zoomID, urls) => {
+
+		if(!urls.length){
+			return true;
+		}
+
+		const data = {
+			method: 'get',
+			urls: urls
+		};
+
+		const response = await fetch(this.map.style.tiles, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data)
+		});
+
+		const result = await response.json();
+
+		if(!result.status){
+			return false;
+		}
+
+		for(let url in result.data){
+			const data = result.data[url];
+			this.storage.tiles[zoomID].items[url].src = data;
+
+			if(data !== '0'){
+				this.parse(zoomID, url);				
+			} else {
+				this.storage.tiles[zoomID].items[url] = false;
+			}
+		}
+
+		if(!this.map.states.loaded){
+			this.map.firstLoad();
+		}
+	}
+
+	/*
+
+	Lazy Tiles Load, One by One
+
+	*/
+
+	lazyLoad = async (zoomID, url) => {
+		let result;
+		try {
+			let rUrl = `${this.map.style.tiles}/${url}`;
+			result = await(await fetch(rUrl)).text();
+		} catch(e){
+			// Continue Regardless Error
+			result = '0';
+		}
+		
+		this.storage.tiles[zoomID].items[url].src = result;
+
+		if(result !== '0'){
+			this.parse(zoomID, url);
+		} else {
+			this.storage.tiles[zoomID].items[url] = false;
+
+			if(!this.map.states.loaded){
+				this.map.firstLoad(url);
+			}
+		}
+		
+	}
+};
 
 export default Tiles;

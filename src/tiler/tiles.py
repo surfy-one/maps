@@ -1,18 +1,29 @@
 import shutil
 import os
+
 import sqlite3
+
 import json
 import re
+
+# Shapely
 from shapely import set_precision, to_geojson
 from shapely.geometry import box, mapping
 from shapely.wkt import loads as shape_load
+from shapely.geometry import LineString
+from shapely.ops import linemerge
+
 import mercantile
 import geopandas as gpd
+import pandas as pd
 
 import multiprocessing
+from multiprocessing.pool import ThreadPool
 
 from collections import namedtuple
 DB = namedtuple('DB', ['conn', 'cursor'])
+
+import time
 
 # Geometry Types for Index
 geometries = ['Point', 'LineString', 'MultiLineString', 'Polygon', 'MultiPolygon']
@@ -48,39 +59,32 @@ def fix_coords(items):
 
 class Tiles:
 
-	def __init__(self, config):
-		self.config = config
+	def __init__(self, ):
 
-		# Clear Tiles Directory
-		shutil.rmtree(self.config['data'], ignore_errors=True)
-		os.makedirs(self.config['data'], exist_ok=True)
+		if 'update_only' not in CONFIG:
+			# Clean Tile Directory
+			shutil.rmtree(CONFIG['data'], ignore_errors=True)
 
-		# Create DB
-		conn = sqlite3.connect(self.config['db_file'])
-		conn.enable_load_extension(True)
-		conn.execute("SELECT load_extension('mod_spatialite')")
-		cursor = conn.cursor()
-
-		# DB Object
-		self.db = DB(conn, cursor)
+		# Create 
+		os.makedirs(CONFIG['data'], exist_ok=True)
 
 
-		self.groups = {}
+		CONFIG['group_index'] = {}
 		self.dict = []
 
-		g_id = 0
-		for group_name, group in self.config['groups'].items():
-			self.groups[group_name] = {
+		g_id = 0 # Group ID
+
+		for group_name, group in CONFIG['groups'].items():
+			CONFIG['group_index'][group_name] = {
 				'id': g_id,
 				'layers': {}
 			}
 
-
-
-			l_id = 0
+			l_id = 0 # Layer ID
 			layers = []
+
 			for layer_name, layer in group.items():
-				self.groups[group_name]['layers'][layer_name] = l_id
+				CONFIG['group_index'][group_name]['layers'][layer_name] = l_id
 				l_id += 1
 
 				layer_item = {
@@ -98,19 +102,29 @@ class Tiles:
 
 			g_id += 1
 
-		print(self.dict)
-		with open(self.config['data'] + '/config.json', 'w') as dict_file:
-			json.dump(self.dict, dict_file, indent='\t')		
+		
+		with open(CONFIG['data'] + '/config.json', 'w') as dict_file:
+			json.dump(self.dict, dict_file, indent='\t')
+
 
 	def go(self,):
+		# Create DB
 
-		self.db.cursor.execute("SELECT data FROM config_data WHERE name='bbox'")
-		result = self.db.cursor.fetchone()
+		conn = sqlite3.connect(CONFIG['db_file'], check_same_thread=False)
+		conn.enable_load_extension(True)
+		conn.execute("SELECT load_extension('mod_spatialite')")
+		cursor = conn.cursor()
+
+		cursor.execute("SELECT data FROM config_data WHERE name='bbox'")
+		result = cursor.fetchone()
 		bbox = json.loads(result[0])
-		print('BBOX',bbox)
+		print('BBox', bbox);
 
-		for zoom in (2, 4, 6, 8, 10, 12, 14):
-		# for zoom in (2, 4, 6, 8, 10):
+		bunch = []
+
+		for zoom in (2, 4, 6, 8, 10, 12, 14, 15, 16, 17): # Full Set
+		# for zoom in (2, 4, 6, 8, 10, 12, 14, 15):
+		# for zoom in [12]:
 
 			'''
 
@@ -118,171 +132,185 @@ class Tiles:
 
 			'''
 
-			layers = []
-			for group_name, group in self.config['groups'].items():
+			# layers = []
+			group_layers = []
+			for group_name, group in CONFIG['groups'].items():
 				for layer_name, layer in group.items():
-					if layer['minzoom'] <= zoom and group_name in ['nature', 'roads']:
-						layers.append(layer_name)
+					if layer['minzoom'] <= zoom: # and group_name in ['nature', 'roads']:
+						group_layers.append(group_name + ':' + layer_name)
+						# layers.append(layer_name)
 
-			if not len(layers):
+			if not len(group_layers):
 				continue
 
-			layers_param = ', '.join('?' for _ in layers)
+			group_layers_param = ', '.join('?' for _ in group_layers)
 
-			options = [ self.config, self.groups, layers, layers_param, ]
-			bunch = []
+			# options = [ DB, self.config, self.groups, group_layers, group_layers_param, ]
+			options = [ group_layers, CONFIG ]
+			# bunch = []
 			for tile in mercantile.tiles(bbox[0], bbox[1], bbox[2], bbox[3], zooms=zoom, truncate=False):
+				# print(tile)
 				bunch.append([tile] + options)
 
 
-			
-			num_cores = multiprocessing.cpu_count()
-			# num_cores = 1
-			with multiprocessing.Pool(processes=num_cores) as pool:
-				pool.map(create_tile, bunch)
-				
+
+
+		'''
+
+		Run Pool
+
+		'''
+
+		'''
+		pool = ThreadPool(processes=8)
+		results = pool.map(create_tile, bunch)
+		pool.close()
+		pool.join()
+
+		'''
+
+		num_cores = multiprocessing.cpu_count()
+		# num_cores = 1
+
+		with multiprocessing.Pool(processes=num_cores) as pool:
+			pool.map(create_tile, bunch)
+			# pool.close()
+			# pool.join()
 		
 
+'''
 
 
-	def test(self,):
-
-		self.db.cursor.execute("PRAGMA table_info(features);")
-		columns = [column[1] for column in self.db.cursor.fetchall()]
-		print('DB Columns', columns)
+Create Title
 
 
-		min_x, min_y, max_x, max_y = -0.0224971329,51.5041493371,-0.0200334285,51.5006863218
-		bbox = box(min_x, min_y, max_x, max_y)
-		bbox = bbox.wkt
-
-		query = f"SELECT id, oid, `group`, layer, data, AsText(`coords`) FROM features WHERE Intersects(coords, ST_GeomFromText(?))"
-		result = self.db.conn.execute(query, (bbox,)).fetchall()
-		print('Result', len(result))
-
-		# POLYGON((-0.043632 51.500291, -0.043632 51.500291, -0.043632 51.500291, -0.043632 51.500291, -0.043632 51.500291))
-		# -0.0436321
-		self.db.cursor.execute('''SELECT AsText(ST_Envelope(ST_Union(coords))) as asd FROM features''')
-		# print(self.db.cursor.fetchone()[0])
-
-		
-		for r in self.db.cursor.fetchall():
-			print(r)
-
-		return True
+'''
 
 def create_tile(data):
 
-	tile, config, groups, layers, layers_param = data
-
-	# Create DB
-	conn = sqlite3.connect(config['db_file'])
-	conn.enable_load_extension(True)
-	conn.execute("SELECT load_extension('mod_spatialite')")
-	
+	# Prepare data
+	tile, group_layers, CONFIG = data
 	x,y,z = tile
 	zoom = str(z)
+	group_layers_param = ', '.join('?' for _ in group_layers)
 
-	print('Create', tile)
-	
-	'''
-	
-	Each Tile at Zoom level
+	# DB
+	conn = sqlite3.connect(CONFIG['db_file'])
+	conn.enable_load_extension(True)
+	conn.execute("SELECT load_extension('mod_spatialite')")
 
-	'''
-
+	# Get Tile Boundaries
 	tile_bounds = mercantile.bounds(tile)
-	# print(tile_bounds)
-	
 	tile_bounds = box(tile_bounds.west, tile_bounds.south, tile_bounds.east, tile_bounds.north)
-	# print(tile_bounds.wkt)
-	
-	# AsText(`coords`) as 
+
+	# Select Features inside Boundary
 	query = f'''SELECT id, oid, `group`, layer, data,
-	Hex(ST_AsBinary(coords)) as coords,
-	AsText(coords) as coords_2
-	FROM features WHERE layer IN ({layers_param})
+	Hex(ST_AsBinary(coords)) as coords
+	FROM features WHERE group_layer IN ({group_layers_param})
 	and Intersects(coords, ST_GeomFromText(?))'''
-	# print(query)
-	params = layers + [tile_bounds.wkt]
+	
+	params = group_layers + [tile_bounds.wkt]
+	
 	tile_gdf = gpd.GeoDataFrame.from_postgis(query, conn, geom_col='coords', params=tuple(params))
 
 	if tile_gdf.empty:
 		# Skip if tile is empty
 		return True
 
-	tile_gdf = gpd.clip(tile_gdf, tile_bounds)
-	if tile_gdf.empty:
-		return False # Skip if tile is empty
+	'''
 
-	# Create File
-	tile_dir = config['data'] + '/{}/{}'.format(z,x)
+	Clip Tile excluding Buildings
+
+	'''
+
+	buildings =  tile_gdf[tile_gdf.group == 'buildings']
+	non_buildings =  tile_gdf[tile_gdf.group != 'buildings']
+	non_buildings = gpd.clip(non_buildings, tile_bounds)
+
+	tile_gdf = pd.concat([non_buildings, buildings])
+
+	if tile_gdf.empty:
+		return True # Skip if tile is empty
+
+	'''
+
+	Create Tile File
+
+	'''
+
+	tile_dir = CONFIG['data'] + '/{}/{}'.format(z,x)
 	tile_file_path = f'{tile_dir}/{y}'
 	os.makedirs(tile_dir, exist_ok=True)
+
+	try:
+		os.remove(tile_file_path)
+	except OSError:
+		pass
+
 	tile_file = open(tile_file_path, 'w')
+
+	'''
+	
+	Loop through all features to compress and prepare for storing
+
+	'''
 
 	for index, feature in tile_gdf.iterrows():
 
+		if feature.coords.geom_type == 'MultiLineString':
+			feature.coords = linemerge(feature.coords)
+
+		layer = CONFIG['groups'][feature.group][feature.layer]
+
 		'''
 
-		Parse Feature
+		Compress Geometry
 
 		'''
-		
-		layer = config['groups'][feature.group][feature.layer]
+
 		if 'compress' in layer and str(zoom) in layer['compress']:
 			compress = layer['compress'][str(zoom)]
-
-			gdf = gpd.GeoDataFrame(geometry=[feature.coords])
-
+			
 			if 'tolerance' in compress:
-				# print('compress It', zoom, tile.x, tile.y, feature.group, feature.layer, layer['compress'][str(zoom)])
-				# print(gdf.geometry[0].length)
-				# print(len(gdf.geometry[0].coords), gdf.geometry[0].length, gdf.geometry[0])
-				gdf['geometry'] = gdf.simplify(tolerance=compress['tolerance'], preserve_topology=True)
-				# print(len(gdf.geometry[0].coords), gdf.geometry[0].length, gdf.geometry[0])
-				# print('')
+				# print('Before', feature.coords.length)
+				feature.coords = feature.coords.simplify(tolerance=compress['tolerance'], preserve_topology=True)
 
-			if gdf.empty:
-				# Empty Drop
-				continue
+				if feature.coords.length == 0:
+					print('Empty', feature.coords.length)
 
 			if 'drop' in compress:
 				
-				if gdf.geometry[0].geom_type in ['Polygon', 'MultiPolygon']:
+				if feature.coords.geom_type in ['Polygon', 'MultiPolygon']:
 					# Polygon Drop
 
-					if gdf.geometry[0].area < compress['drop']:
+					if feature.coords.area < compress['drop']:
 						continue
 
-				elif gdf.geometry[0].length < compress['drop']:
+				elif feature.coords.geom_type == 'LineString' and  feature.coords.length < compress['drop']:
 					# Line Drop
+					continue
+			else:
+				if feature.coords.geom_type in ['Polygon', 'MultiPolygon']:
+					# Polygon Drop
+
+					if feature.coords.area == 0:
+						print('Polygon Dropped')
+						continue
+
+				elif feature.coords.geom_type == 'LineString' and feature.coords.length == 0:
+					# Line Drop
+					print('Line Dropped')
 					continue
 
 
-			# Set Precision for coords, not necessary because we use fix_coords
-			# gdf['geometry'] = set_precision(gdf.geometry.array, grid_size=0.000001)
-			
-			feature.coords = gdf.geometry[0]
-			
-
-			# print(gdf.geometry[0].geom_type)
-
-		# coords = []
-
-		# geometry_type, coords, offsets = to_ragged_array([feature.coords])
-		
-		# print(json.loads(to_geojson(feature.coords))['type'])
-		# geom_type = feature.coords.geom_type
-
-
-
-		# print(mapping(feature.coords))
+		# Fit coordinates
 		coords = mapping(feature.coords)
 		geom_type = coords['type']
+
 		coords = fix_coords(coords['coordinates'])
 
-		if geom_type in ['Polygon','MultiPolygon']:
+		# Normalize Polygons
+		if geom_type in ['Polygon', 'MultiPolygon']:
 			coords = convert_to_3d(coords)
 			if isinstance(coords[0][0], int):
 				geom_type = 'Polygon'
@@ -290,36 +318,21 @@ def create_tile(data):
 				geom_type = 'MultiPolygon'
 
 		'''
-		print(coords)
-		exit()
 
-		coords = json.loads(to_geojson(feature.coords))['coordinates']
-		coords = fix_coords(coords)
-		if geom_type == 'Polygon':
-			if len(coords) == 1:
-				coords = coords[0]
-			else:
-				geom_type = 'MultiPolygon'
-				for index in range(len(coords)):
-					if len(coords[index]) == 1:
-						coords[index] = coords[index][0]
+		Feature Line (Item)
+
 		'''
-
-		
-		# print(feature.group, feature.layer, len(coords), coords)
-
-		# Feature object to store
 		
 		item = [
 			str(feature.oid),
 			str(geometries.index(geom_type)),
-			str(groups[feature.group]['id']),
-			str(groups[feature.group]['layers'][feature.layer])
+			str(CONFIG['group_index'][feature.group]['id']),
+			str(CONFIG['group_index'][feature.group]['layers'][feature.layer])
 		]
 
 		'''
 
-		Additional Data
+		Extract Additional Data from DB according to CONFIG
 
 		'''
 
@@ -332,18 +345,22 @@ def create_tile(data):
 				'''
 
 					tag: {
-						"field": "name",
+						"key": "name",
 						"type": "*"
 					}
 
 				'''
 
-				tag_name = tag['field']
+				tag_name = tag['key']
 				tag_type = tag['type']
 
 				if tag_name in feature.data:
 					
 					v = feature.data[tag_name]
+
+					if tag_name == 'name' and v:
+						# Remove Everything in brackets, e.g. Westferry (DLR) > Westferry
+						v = feature.data[tag_name] = re.sub(r'\([^)]*\)', '', v).strip()
 					
 					if tag_type == '*':
 						if not v:
@@ -352,10 +369,7 @@ def create_tile(data):
 						feature.data[tag_name] = '1' if v else '0'
 					elif isinstance(tag_type, list):
 
-						if 'name' in feature.data:
-							# Remove Everything in brackets
-							feature.data['name'] = re.sub(r'\([^)]*\)', '', feature.data['name']).strip()
-
+						# Get Dictionary ID if tag presents in Dictionary (CONFIG)
 						dict_value = '0'
 						for index, t in enumerate(tag_type):
 							
@@ -375,36 +389,74 @@ def create_tile(data):
 						feature.data[tag_name] = dict_value
 
 
+		# Append Extra Data
 		data = '\t'.join(list((feature.data).values()))
 		if len(data):
 			item.append(data)
 
-		# Coords
+
+		# Append Coords
+
 		coords = json.dumps(coords, separators=(',', ':'))
 		item.append(coords)
 
-		item = '\t'.join(item)
+		item = '\t'.join(item) # Flatten Feature
 		
-		tile_file.write(item + '\n')
+		tile_file.write(item + '\n') # Write Feature
 
 
-	tile_file.close()
-	return True
+	tile_file.close() # Close Tile File
+
+	# timePoint('Done')
 
 
-def create_tiles(CONFIG):
-	tiles = Tiles(CONFIG)
+'''
+
+Time Point
+
+'''
+
+point_time = time.time()
+
+def timePoint(msg='default'):
+	global point_time
+	execution_time = time.time() - point_time
+	print('Time {}: {:.4f} seconds'.format(msg, execution_time))
+	point_time = time.time()
+	return execution_time
+
+
+
+'''
+
+Create Tiles Global Run
+
+'''
+
+
+def create_tiles(conf):
+	global CONFIG
+
+	CONFIG = conf
+
+	start_time = time.time()
+	tiles = Tiles()
 
 	tiles.go()
 
+	execution_time = time.time() - start_time
+	print('Tiles render time: {:.2f} minutes'.format(execution_time / 60))
+
 if __name__ == '__main__':
 	config_name = 'canary'
-	config_name = 'london'
+	# config_name = 'london'
+	# config_name = 'isle-of-dogs'
 	
 	settings = json.load(open('./configs/{}.json'.format(config_name), 'r'))
 
 	filters = json.load(open('./config.json'))
 
 	CONFIG = {**settings, **filters}
+	CONFIG['update_only'] = True
 
 	create_tiles(CONFIG)
